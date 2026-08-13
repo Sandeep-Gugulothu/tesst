@@ -1,0 +1,27 @@
+name: Build Driver
+on: [push]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WDK
+        run: |
+          $wdkUrl = "https://go.microsoft.com/fwlink/?linkid=2249371"
+          Invoke-WebRequest -Uri $wdkUrl -OutFile wdksetup.exe
+          Start-Process -Wait -FilePath wdksetup.exe -ArgumentList "/quiet"
+        shell: pwsh
+
+      - name: Build Driver
+        run: msbuild driver.vcxproj /p:Configuration=Release /p:Platform=x64
+        shell: cmd
+
+      - name: Upload driver.sys
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver
+          path: x64\Release\driver.sys
