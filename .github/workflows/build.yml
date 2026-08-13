@@ -2,20 +2,21 @@ name: Build Driver
 on: [push]
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install WDK
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2128854" -OutFile wdksetup.exe
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2249371" -OutFile wdksetup.exe
           Start-Process -Wait wdksetup.exe -ArgumentList "/quiet", "/norestart"
 
-      - name: Build Driver
-        shell: cmd
+      - name: Find MSBuild and Build
+        shell: pwsh
         run: |
-          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe" driver.vcxproj /p:Configuration=Release /p:Platform=x64
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          & $msbuild driver.vcxproj /p:Configuration=Release /p:Platform=x64
 
       - name: Upload driver.sys
         uses: actions/upload-artifact@v4
