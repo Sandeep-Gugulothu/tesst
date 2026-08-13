@@ -2,20 +2,20 @@ name: Build Driver
 on: [push]
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
 
       - name: Install WDK
-        run: |
-          choco install windows-driver-kit -y --no-progress
         shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2128854" -OutFile wdksetup.exe
+          Start-Process -Wait wdksetup.exe -ArgumentList "/quiet", "/norestart"
 
       - name: Build Driver
         shell: cmd
         run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do set MSBUILD=%%i
-          "%MSBUILD%" driver.vcxproj /p:Configuration=Release /p:Platform=x64
+          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe" driver.vcxproj /p:Configuration=Release /p:Platform=x64
 
       - name: Upload driver.sys
         uses: actions/upload-artifact@v4
