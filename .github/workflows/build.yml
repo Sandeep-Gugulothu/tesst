@@ -10,16 +10,43 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2249371" -OutFile wdksetup.exe
-          Start-Process -Wait wdksetup.exe -ArgumentList "/quiet", "/norestart"
+          Start-Process -Wait wdksetup.exe -ArgumentList "/features + /quiet /norestart"
+          $kitsDir = "C:\Program Files (x86)\Windows Kits\10\Include"
+          if (Test-Path $kitsDir) {
+            Write-Host "WDK installed successfully"
+            Get-ChildItem $kitsDir
+          } else {
+            Write-Host "WDK install failed"
+            exit 1
+          }
 
-      - name: Find MSBuild and Build
+      - name: Build Driver
         shell: pwsh
         run: |
-          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-          & $msbuild driver.vcxproj /p:Configuration=Release /p:Platform=x64
+          $kitRoot = "C:\Program Files (x86)\Windows Kits\10"
+          $kitVer  = (Get-ChildItem "$kitRoot\Include" | Sort-Object Name -Descending | Select-Object -First 1).Name
+          $inc1    = "$kitRoot\Include\$kitVer\km"
+          $inc2    = "$kitRoot\Include\$kitVer\shared"
+          $lib     = "$kitRoot\Lib\$kitVer\km\x64"
 
-      - name: Upload driver.sys
+          $msvcRoot = "C:\Program Files\Microsoft Visual Studio"
+          $cl   = (Get-ChildItem "$msvcRoot" -Recurse -Filter "cl.exe"   | Where-Object { $_.FullName -match "HostX64\\x64" } | Select-Object -First 1).FullName
+          $link = (Get-ChildItem "$msvcRoot" -Recurse -Filter "link.exe" | Where-Object { $_.FullName -match "HostX64\\x64" } | Select-Object -First 1).FullName
+
+          Write-Host "cl:   $cl"
+          Write-Host "link: $link"
+          Write-Host "inc:  $inc1"
+          Write-Host "lib:  $lib"
+
+          & $cl /nologo /kernel /c /GS- /W3 /O2 /D NDEBUG /D _WIN64 /D _AMD64_ /D AMD64 `
+            /I "$inc1" /I "$inc2" /Fo"driver.obj" driver.c
+
+          & $link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:DriverEntry `
+            /NODEFAULTLIB /OUT:driver.sys `
+            "$lib\ntoskrnl.lib" "$lib\hal.lib" "$lib\wdm.lib" driver.obj
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: driver
-          path: x64\Release\driver.sys
+          path: driver.sys
