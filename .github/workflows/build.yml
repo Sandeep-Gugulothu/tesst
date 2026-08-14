@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           $kitRoot = "C:\Program Files (x86)\Windows Kits\10"
-          $kitVer  = (Get-ChildItem "$kitRoot\Include" | Sort-Object Name -Descending | Select-Object -First 1).Name
+          $kitVer  = (Get-ChildItem "$kitRoot\Include" | Where-Object { $_.Name -match '^10\.' } | Sort-Object Name -Descending | Select-Object -First 1).Name
           $inc1    = "$kitRoot\Include\$kitVer\km"
           $inc2    = "$kitRoot\Include\$kitVer\shared"
           $lib     = "$kitRoot\Lib\$kitVer\km\x64"
